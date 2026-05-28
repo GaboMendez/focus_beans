@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:focus_beans/focus_timer.dart';
 
 void main() {
   runApp(const FocusBeansApp());
@@ -22,16 +23,7 @@ class FocusBeansApp extends StatelessWidget {
           title: const Text('FocusBeans 🌱'),
           backgroundColor: Colors.brown[200],
         ),
-        body: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              BeanStage(phase: BeanPhase.seed),
-              SizedBox(height: 24),
-              TimeDisplay(secondsLeft: 25 * 60),
-            ],
-          ),
-        ),
+        body: const Center(child: FocusTimer()),
       ),
     );
   }
