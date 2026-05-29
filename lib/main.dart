@@ -20,8 +20,9 @@ class FocusBeansApp extends StatelessWidget {
       ),
       home: Scaffold(
         appBar: AppBar(
-          title: const Text('FocusBeans 🌱'),
+          title: const Text('🌱 FocusBeans 🌱'),
           backgroundColor: Colors.brown[200],
+          centerTitle: true,
         ),
         body: const Center(child: FocusTimer()),
       ),

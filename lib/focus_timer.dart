@@ -1,11 +1,11 @@
-// PARTE 2 — Temporizador Stateful
+// PARTE 2 / PARTE 4 — Temporizador Stateful con sesiones encadenadas
 import 'package:flutter/material.dart';
 import 'dart:async';
 
 import 'package:focus_beans/main.dart';
 
-/// Duración inicial del temporizador (20s).
-const int _initialSeconds = 20;
+const int _focusSeconds = 20; // sesión de foco
+const int _breakSeconds = 5;  // descanso automático
 
 /// Gestiona el tiempo, el timer de Dart y el estado de pausa/ejecución.
 /// Es Stateful porque su contenido cambia con el tiempo, de forma autónoma, sin que el usuario toque nada.
@@ -17,9 +17,17 @@ class FocusTimer extends StatefulWidget {
 }
 
 class _FocusTimerState extends State<FocusTimer> {
-  int _secondsLeft = _initialSeconds;
+  int _secondsLeft = _focusSeconds;
   Timer? _timer;
   bool _isRunning = false;
+
+  // Parte 4 — sesiones encadenadas + contador de pomodoros
+  bool _isBreak = false;
+  // El contador vive aquí intencionalmente: sobrevive a _reset() porque
+  // solo reiniciamos el ciclo actual, no el historial de pomodoros completados.
+  int _pomodorosCompleted = 0;
+
+  int get _totalSeconds => _isBreak ? _breakSeconds : _focusSeconds;
 
   // Ciclo de vida
   @override
@@ -38,17 +46,29 @@ class _FocusTimerState extends State<FocusTimer> {
     setState(() => _isRunning = true);
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_secondsLeft <= 0) {
-        _timer?.cancel();
-        setState(() {
-          _isRunning = false;
-          _secondsLeft = 0;
-        });
+      if (_secondsLeft > 0) {
+        setState(() => _secondsLeft--);
         return;
       }
-      // La mutación DEBE ocurrir dentro de setState para que Flutter
-      // sepa que tiene que reconstruir el árbol.
-      setState(() => _secondsLeft--);
+      // Llegó a 0
+      _timer?.cancel();
+      if (!_isBreak) {
+        // Foco completado → auto-arranca descanso de 5 s
+        setState(() {
+          _pomodorosCompleted++;
+          _isBreak = true;
+          _secondsLeft = _breakSeconds;
+          _isRunning = false;
+        });
+        _start();
+      } else {
+        // Descanso terminado → vuelve al foco, espera al usuario
+        setState(() {
+          _isBreak = false;
+          _secondsLeft = _focusSeconds;
+          _isRunning = false;
+        });
+      }
     });
   }
 
@@ -61,46 +81,52 @@ class _FocusTimerState extends State<FocusTimer> {
     _timer?.cancel();
     setState(() {
       _isRunning = false;
-      _secondsLeft = _initialSeconds;
+      _isBreak = false;
+      _secondsLeft = _focusSeconds;
+      // _pomodorosCompleted se mantiene: sobrevive al reinicio del ciclo
     });
   }
 
   // Fase de la planta (derivada del tiempo, nunca guardada a mano)
   BeanPhase get _phase {
-    if (_secondsLeft == 0) return BeanPhase.ready;
-    if (_secondsLeft > _initialSeconds * 0.66) return BeanPhase.seed;
+    if (_isBreak || _secondsLeft == 0) return BeanPhase.ready;
+    if (_secondsLeft > _totalSeconds * 0.66) return BeanPhase.seed;
     return BeanPhase.growing;
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool finished = _secondsLeft == 0;
-
-    // Cambia el color de fondo cuando el café está listo para dar feedback visual.
     return AnimatedContainer(
       duration: const Duration(milliseconds: 500),
-      color: finished ? Colors.brown[100] : Colors.white,
+      color: _isBreak ? Colors.teal[50] : Colors.white,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          BeanStage(phase: _phase),
+          // AnimatedSwitcher anima la transición entre emojis de fase
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 400),
+            child: BeanStage(key: ValueKey(_phase), phase: _phase),
+          ),
           const SizedBox(height: 24),
           TimeDisplay(secondsLeft: _secondsLeft),
           const SizedBox(height: 8),
-          if (finished)
+          if (_isBreak)
             const Text(
               '¡Tiempo de descanso! ☕',
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
             ),
+          const SizedBox(height: 8),
+          // 📊 Contador de pomodoros completados
+          Text(
+            'Pomodoros: $_pomodorosCompleted 🍅',
+            style: const TextStyle(fontSize: 16),
+          ),
           const SizedBox(height: 32),
-          // Los controles se extraen a TimerControls: no necesitan estado propio
-          // porque no recuerdan nada — solo reciben el estado actual y callbacks
-          // del padre. Son presentación pura → Stateless.
           TimerControls(
             isRunning: _isRunning,
-            finished: finished,
+            finished: false,
             secondsLeft: _secondsLeft,
-            initialSeconds: _initialSeconds,
+            initialSeconds: _totalSeconds,
             onStart: _start,
             onPause: _pause,
             onReset: _reset,
