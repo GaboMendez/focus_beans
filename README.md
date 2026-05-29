@@ -2,6 +2,8 @@
 
 Temporizador Pomodoro con crecimiento visual de un grano de café. Construido con Flutter.
 
+![FocusBeans demo](Video%20Project.gif)
+
 ## Widgets Stateless vs Stateful
 
 | Widget | Tipo | Por qué |
