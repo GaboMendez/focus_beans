@@ -4,8 +4,8 @@ import 'dart:async';
 
 import 'package:focus_beans/main.dart';
 
-/// Duración inicial del temporizador (25s).
-const int _initialSeconds = 25;
+/// Duración inicial del temporizador (20s).
+const int _initialSeconds = 20;
 
 /// Gestiona el tiempo, el timer de Dart y el estado de pausa/ejecución.
 /// Es Stateful porque su contenido cambia con el tiempo, de forma autónoma, sin que el usuario toque nada.
@@ -76,35 +76,82 @@ class _FocusTimerState extends State<FocusTimer> {
   Widget build(BuildContext context) {
     final bool finished = _secondsLeft == 0;
 
-    return Column(
+    // Cambia el color de fondo cuando el café está listo para dar feedback visual.
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 500),
+      color: finished ? Colors.brown[100] : Colors.white,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          BeanStage(phase: _phase),
+          const SizedBox(height: 24),
+          TimeDisplay(secondsLeft: _secondsLeft),
+          const SizedBox(height: 8),
+          if (finished)
+            const Text(
+              '¡Tiempo de descanso! ☕',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+            ),
+          const SizedBox(height: 32),
+          // Los controles se extraen a TimerControls: no necesitan estado propio
+          // porque no recuerdan nada — solo reciben el estado actual y callbacks
+          // del padre. Son presentación pura → Stateless.
+          TimerControls(
+            isRunning: _isRunning,
+            finished: finished,
+            secondsLeft: _secondsLeft,
+            initialSeconds: _initialSeconds,
+            onStart: _start,
+            onPause: _pause,
+            onReset: _reset,
+          ),
+        ],
+      ),
+    );
+  }
+}
+// PARTE 3 — Widget de controles extraído
+/// Botones Iniciar/Pausar/Reanudar y Reiniciar.
+/// Es Stateless porque no tiene memoria propia: recibe el estado actual
+/// ([isRunning], [finished]) y los callbacks del padre. No necesita recordar
+/// nada entre frames, se limita a renderizar los botones correctos.
+class TimerControls extends StatelessWidget {
+  final bool isRunning;
+  final bool finished;
+  final int secondsLeft;
+  final int initialSeconds;
+  final VoidCallback onStart;
+  final VoidCallback onPause;
+  final VoidCallback onReset;
+
+  const TimerControls({
+    super.key,
+    required this.isRunning,
+    required this.finished,
+    required this.secondsLeft,
+    required this.initialSeconds,
+    required this.onStart,
+    required this.onPause,
+    required this.onReset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final String startLabel = isRunning
+        ? 'Pausar'
+        : (secondsLeft < initialSeconds ? 'Reanudar' : 'Iniciar');
+
+    return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        BeanStage(phase: _phase),
-        const SizedBox(height: 24),
-        TimeDisplay(secondsLeft: _secondsLeft),
-        const SizedBox(height: 8),
-        if (finished)
-          const Text(
-            '¡Tiempo de descanso! ☕',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-          ),
-        const SizedBox(height: 32),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              onPressed: finished ? null : (_isRunning ? _pause : _start),
-              child: Text(
-                _isRunning
-                    ? 'Pausar'
-                    : (_secondsLeft < _initialSeconds)
-                    ? 'Reanudar'
-                    : 'Iniciar',
-              ),
-            ),
-            const SizedBox(width: 16),
-            OutlinedButton(onPressed: _reset, child: const Text('Reiniciar')),
-          ],
+        ElevatedButton(
+          onPressed: finished ? null : (isRunning ? onPause : onStart),
+          child: Text(startLabel),
+        ),
+        const SizedBox(width: 16),
+        OutlinedButton(
+          onPressed: onReset,
+          child: const Text('Reiniciar'),
         ),
       ],
     );
