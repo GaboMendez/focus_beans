@@ -1,14 +1,16 @@
-// PARTE 2 / PARTE 4 — Temporizador Stateful con sesiones encadenadas
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
-import 'dart:async';
-
-import 'package:focus_beans/main.dart';
+import 'package:focus_beans/models/bean_phase.dart';
+import 'package:focus_beans/widgets/bean_stage.dart';
+import 'package:focus_beans/widgets/time_display.dart';
+import 'package:focus_beans/widgets/timer_controls.dart';
 
 const int _focusSeconds = 20; // sesión de foco
 const int _breakSeconds = 5;  // descanso automático
 
-/// Gestiona el tiempo, el timer de Dart y el estado de pausa/ejecución.
-/// Es Stateful porque su contenido cambia con el tiempo, de forma autónoma, sin que el usuario toque nada.
+/// El corazón de la app. Gestiona el tiempo, el timer de Dart y el estado
+/// de pausa/ejecución. Es Stateful porque su contenido cambia con el tiempo,
+/// de forma autónoma, sin que el usuario toque nada.
 class FocusTimer extends StatefulWidget {
   const FocusTimer({super.key});
 
@@ -26,10 +28,8 @@ class _FocusTimerState extends State<FocusTimer> {
   // El contador vive aquí intencionalmente: sobrevive a _reset() porque
   // solo reiniciamos el ciclo actual, no el historial de pomodoros completados.
   int _pomodorosCompleted = 0;
-
   int get _totalSeconds => _isBreak ? _breakSeconds : _focusSeconds;
 
-  // Ciclo de vida
   @override
   void dispose() {
     // Si el widget desaparece mientras el timer corre, el callback
@@ -40,20 +40,20 @@ class _FocusTimerState extends State<FocusTimer> {
 
   // Lógica del timer
   void _start() {
-    // Evita crear múltiples timers si se llama dos veces seguidas.
     if (_isRunning) return;
-
     setState(() => _isRunning = true);
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsLeft > 0) {
+        // La mutación DEBE ocurrir dentro de setState para que Flutter
+        // sepa que tiene que reconstruir el árbol.
         setState(() => _secondsLeft--);
         return;
       }
       // Llegó a 0
       _timer?.cancel();
       if (!_isBreak) {
-        // Foco completado → auto-arranca descanso de 5 s
+        // Foco completado → auto-arranca descanso
         setState(() {
           _pomodorosCompleted++;
           _isBreak = true;
@@ -116,7 +116,6 @@ class _FocusTimerState extends State<FocusTimer> {
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
             ),
           const SizedBox(height: 8),
-          // 📊 Contador de pomodoros completados
           Text(
             'Pomodoros: $_pomodorosCompleted 🍅',
             style: const TextStyle(fontSize: 16),
@@ -133,53 +132,6 @@ class _FocusTimerState extends State<FocusTimer> {
           ),
         ],
       ),
-    );
-  }
-}
-// PARTE 3 — Widget de controles extraído
-/// Botones Iniciar/Pausar/Reanudar y Reiniciar.
-/// Es Stateless porque no tiene memoria propia: recibe el estado actual
-/// ([isRunning], [finished]) y los callbacks del padre. No necesita recordar
-/// nada entre frames, se limita a renderizar los botones correctos.
-class TimerControls extends StatelessWidget {
-  final bool isRunning;
-  final bool finished;
-  final int secondsLeft;
-  final int initialSeconds;
-  final VoidCallback onStart;
-  final VoidCallback onPause;
-  final VoidCallback onReset;
-
-  const TimerControls({
-    super.key,
-    required this.isRunning,
-    required this.finished,
-    required this.secondsLeft,
-    required this.initialSeconds,
-    required this.onStart,
-    required this.onPause,
-    required this.onReset,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final String startLabel = isRunning
-        ? 'Pausar'
-        : (secondsLeft < initialSeconds ? 'Reanudar' : 'Iniciar');
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        ElevatedButton(
-          onPressed: finished ? null : (isRunning ? onPause : onStart),
-          child: Text(startLabel),
-        ),
-        const SizedBox(width: 16),
-        OutlinedButton(
-          onPressed: onReset,
-          child: const Text('Reiniciar'),
-        ),
-      ],
     );
   }
 }
